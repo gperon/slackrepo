@@ -284,7 +284,7 @@ else
   echo "$(basename "$0"): Error: /etc/slackware-version not found"
   exit_cleanup 4
 fi
-SYS_KERNEL=$(uname -r)
+SYS_KERNEL=${KERNEL:-$(uname -r)}
 SYS_ARCH=$(uname -m)
 SYS_MULTILIB='n'
 [ "$SYS_ARCH" = 'x86_64' ] && [ -f /etc/profile.d/32dev.sh ] && SYS_MULTILIB='y'
