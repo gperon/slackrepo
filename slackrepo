@@ -310,13 +310,11 @@ if [ -f /var/lib/slackpkg/ChangeLog.txt ] && ! grep -q "${SYS_OSVER}.*is release
   # we must be in-between updating aaa_base and the real release
   SYS_CURRENT='y'
 elif [ "${SYS_OSNAME}${SYS_OSVER}" = "slackware14.2" ]; then
-  # file-5.25 was the first package superseded in this cycle of current
-  for filefile in /var/log/packages/file-5.25-*-1; do
-    if [ ! -f "$filefile" ]; then
+  if [ -f /etc/slackware-version ]; then
+    if grep '+' /etc/slackware-version ; then
       SYS_CURRENT='y'
-      break
     fi
-  done
+  fi
 # else we're not going to support someone stuck in a 14.1 cycle timewarp
 fi
 
