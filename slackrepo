@@ -311,7 +311,7 @@ if [ -f /var/lib/slackpkg/ChangeLog.txt ] && ! grep -q "${SYS_OSVER}.*is release
   SYS_CURRENT='y'
 elif [ "${SYS_OSNAME}${SYS_OSVER}" = "slackware14.2" ]; then
   if [ -f /etc/slackware-version ]; then
-    if grep '+' /etc/slackware-version ; then
+    if grep '+' /etc/slackware-version > /dev/null 2>&1 ; then
       SYS_CURRENT='y'
     fi
   fi
