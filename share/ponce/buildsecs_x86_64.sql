@@ -378,7 +378,7 @@ insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/id3
 insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/invada_studio_plugins_lv2','7','7000','~');
 insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/iripdb','1','7000','~');
 insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/jaaa','2','7000','~');
-insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/jack-audio-connection-kit','26','7000','~');
+insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/jack1','26','7000','~');
 insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/jack-keyboard','4','7000','~');
 insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/jack-rack','7','7000','~');
 insert or ignore into buildsecs(itemid,secs,mhzsum,guessflag) values ('audio/jack-tools','4','7000','~');
