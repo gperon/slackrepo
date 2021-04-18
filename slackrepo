@@ -306,15 +306,9 @@ then
 fi
 # Detect current
 SYS_CURRENT='n'
-if [ -f /var/lib/slackpkg/ChangeLog.txt ] && ! grep -q "${SYS_OSVER}.*is released" /var/lib/slackpkg/ChangeLog.txt; then
-  # we must be in-between updating aaa_base and the real release
+# PRETTY_NAME="Slackware 14.2 x86_64 (post 14.2 -current)"
+if sed -n '/^PRETTY_NAME/p' /etc/os-release | grep post > /dev/null 2>&1 ; then
   SYS_CURRENT='y'
-elif [ "${SYS_OSNAME}${SYS_OSVER}" = "slackware14.2" ]; then
-  if [ -f /etc/slackware-version ]; then
-    if grep '+' /etc/slackware-version > /dev/null 2>&1 ; then
-      SYS_CURRENT='y'
-    fi
-  fi
 # else we're not going to support someone stuck in a 14.1 cycle timewarp
 fi
 
