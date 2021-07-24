@@ -144,6 +144,10 @@ function download_src
     useragent="slackrepo/1.0.0"
     # "special needs"
     case "$url" in
+      # avoid the ?viasf=1 tacked onto sourceforge downloads with wget --content-disposition
+      *sourceforge.net*)
+        dlcmd="curl";
+        ;;
       # dropbox fails to redirect to the actual download if the user-agent *isn't* wget
       # (The regex '*dropbox*' gives false positives, but is necessary to cope with
       # dropboxusercontent.com -- hopefully no false positives refuse wget?)
