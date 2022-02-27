@@ -227,6 +227,35 @@ function uninstall_packages
       done
       unset IFS
     fi
+
+    # Look for the package(s).
+    pkgnams=( $(db_get_itemid_pkgnams "$itemid") )
+
+    for pkgnam in "${pkgnams[@]}"; do
+      # we don't care about exact match so use a dummy -version-arch-build_tag
+      is_installed "$pkgnam"-v-a-b_t
+      istat=$?
+      if [ "$istat" = 2 ]; then
+        # Not installed, carry on quietly
+        continue
+      else
+        if [ "${HINT_KERNEL[$itemid]}" = 'kernelmodule' ]; then
+          ${SUDO}depmod -a
+        elif [ -n "${HINT_CLEANUP[$itemid]}" ]; then
+          # For backwards compatibility, look for 'depmod' in the cleanup hints.
+          IFS=';'
+          for cleancmd in ${HINT_CLEANUP[$itemid]}; do
+            if [ "${cleancmd:0:7}" = 'depmod ' ]; then
+              eval "${SUDO}${cleancmd}" >> "$ITEMLOG" 2>&1
+            elif [ "${cleancmd:0:6}" = 'unset ' ]; then
+              eval "${cleancmd}" >> "$ITEMLOG" 2>&1
+            fi
+          done
+          unset IFS
+        fi
+      fi
+    done
+
     return 0
   fi
 
