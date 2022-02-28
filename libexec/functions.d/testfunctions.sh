@@ -180,7 +180,7 @@ function test_download
           # Proceed only if we seem to have extracted a valid content-length.
           if [ -n "$remotelength" ] && [ "$remotelength" != 0 ]; then
             # Filenames that have %nn encodings won't get checked.
-            filename=$(fromdos <"$MY_HEADER" | grep 'Content-[Dd]isposition:.*filename=' | sed -e 's/^.*filename=//' -e 's/^"//' -e 's/"$//' -e 's/\%20/ /g' -e 's/\%7E/~/g')
+            filename=$(fromdos <"$MY_HEADER" | grep '[Cc]ontent-[Dd]isposition:.*filename=' | sed -e 's/^.*filename=//' -e 's/^"//' -e 's/"$//' -e 's/\%20/ /g' -e 's/\%7E/~/g')
             # If no Content-Disposition, we'll have to guess:
             [ -z "$filename" ] && filename="$(basename "$url")"
             if [ -f "${SRCDIR[$itemid]}"/"$filename" ]; then
