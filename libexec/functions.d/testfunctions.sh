@@ -173,7 +173,7 @@ function test_download
         fi
         ;;
       *)
-        curl -q --connect-timeout 10 --retry 2 -f -v -k --ciphers ALL --disable-epsv --ftp-method nocwd -J -L -A slackrepo -I -o "$MY_HEADER" "$url" >> "$ITEMLOG" 2>&1
+        curl --disable --connect-timeout 10 --retry 2 --fail --verbose --insecure --ciphers ALL --disable-epsv --ftp-method nocwd --location --user-agent slackrepo --head --output "$MY_HEADER" "$url" >> "$ITEMLOG" 2>&1
         curlstat=$?
         if [ "$curlstat" = 0 ]; then
           remotelength=$(fromdos <"$MY_HEADER" | grep 'Content-[Ll]ength: ' | tail -n 1 | sed 's/^.* //')
