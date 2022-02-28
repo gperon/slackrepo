@@ -148,6 +148,9 @@ function download_src
       *sourceforge.net*)
         dlcmd="curl";
         ;;
+      *.sf.net*)
+        dlcmd="curl";
+        ;;
       # dropbox fails to redirect to the actual download if the user-agent *isn't* wget
       # (The regex '*dropbox*' gives false positives, but is necessary to cope with
       # dropboxusercontent.com -- hopefully no false positives refuse wget?)
