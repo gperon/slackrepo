@@ -641,6 +641,7 @@ function build_failed
   log_error -n "${STATUSINFO[$itemid]}"
 
   if [ -n "${MY_CHRDIR}" ]; then
+    uninstall_deps "$itemid" # run any cleanup pragmas
     chroot_destroy
   elif [ "${HINT_INSTALL[$itemid]}" = 'n' ] || [ "$OPT_INSTALL" != 'y' -a "${HINT_INSTALL[$itemid]}" != 'y' ]; then
     uninstall_deps "$itemid"
