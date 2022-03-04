@@ -170,6 +170,10 @@ function download_src
         useragent="curl/7.51.0"
         curlboredom="${curlboredom} --cookie oraclelicense=accept-securebackup-cookie"
         ;;
+      # treegraph requires a referrer header, otherwise you get redirected to an HTML page to download
+      *treegraph.bioinfweb.info*)
+        wgetboredom="${wgetboredom} --referer=http://treegraph.bioinfweb.info/"
+        ;;
     esac
     # In case of utter derpage, you can override that with a pragma if necessary :(
     for pragma in ${HINT_PRAGMA[$itemid]}; do
