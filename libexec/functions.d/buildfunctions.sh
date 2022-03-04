@@ -736,6 +736,9 @@ function chroot_setup
   if [ "$BLOCKNET" = 'y' ]; then
     ${SUDO}rm -f "$MY_CHRDIR"/etc/resolv.conf
     ${SUDO}touch "$MY_CHRDIR"/etc/resolv.conf
+    ${SUDO}touch "$MY_CHRDIR"/etc/hosts
+    ${SUDO}mount --bind /etc/hosts "$MY_CHRDIR"/etc/hosts
+    CHRMOUNTS+=( "$MY_CHRDIR"/etc/hosts )
   else
     ${SUDO}touch "$MY_CHRDIR"/etc/resolv.conf
     ${SUDO}mount --bind /etc/resolv.conf "$MY_CHRDIR"/etc/resolv.conf
