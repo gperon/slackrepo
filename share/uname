@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+LAST=""
+if [ $# -eq 1 ] ; then
+  LAST="${*: -1}"
+fi
+
+if [[ $LAST == "-r" ]] ; then
+  echo "$KERNEL"
+else
+  /usr/bin/uname "$@"
+fi

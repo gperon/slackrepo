@@ -227,6 +227,7 @@ function build_item_packages
   hintneedX='n'
   restorevars=''
   removestubs=''
+  removeuname=''
   for pragma in ${HINT_PRAGMA[$itemid]}; do
     case "$pragma" in
     'multilib_ldflags' )
@@ -324,6 +325,15 @@ function build_item_packages
     'need_X' )
       log_info -a "Pragma: need_X"
       hintneedX='y'
+      ;;
+    'kernelversion' )
+      log_info -a "Pragma: kernelversion"
+
+      if [ ! -z "$KERNEL" ] && [ "$KERNEL" != "$(uname -r)" ] ; then
+        ${SUDO}cp -a /usr/share/slackrepo/uname /usr/local/sbin/
+        removeuname='y'
+      fi
+
       ;;
     'kernel'* | curl | wget )
       ;;
@@ -451,6 +461,7 @@ function build_item_packages
   unset ARCH BUILD TAG TMP OUTPUT PKGTYPE NUMJOBS
   [ -n "$restorevars" ] && eval "$restorevars"
   [ -n "$removestubs" ] && ${SUDO}rm /usr/include/gnu/stubs-32.h
+  [ -n "$removeuname" ] && ${SUDO}rm /usr/local/sbin/uname
 
   # If there's a config.log in the obvious place, save it
   configlog="${TMP_BUILD}/${itemprgnam}-${INFOVERSION[$itemid]}/config.log"
@@ -733,6 +744,7 @@ function chroot_setup
   CHRMOUNTS+=( "$MY_CHRDIR"/proc )
   ${SUDO}mount -t sysfs sysfs "$MY_CHRDIR"/sys
   CHRMOUNTS+=( "$MY_CHRDIR"/sys )
+
   if [ "$BLOCKNET" = 'y' ]; then
     ${SUDO}rm -f "$MY_CHRDIR"/etc/resolv.conf
     ${SUDO}touch "$MY_CHRDIR"/etc/resolv.conf
