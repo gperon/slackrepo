@@ -28,7 +28,7 @@
 # ---------------------------------------------------------------------------
 cat <<"EOT"
 # -------------------------------------------------------------------#
-# $Id: gen_repos_files.sh,v 1.98 2019/03/17 10:59:22 root Exp root $ #
+# $Id: gen_repos_files.sh,v 1.99 2020/12/30 12:08:08 root Exp root $ #
 # -------------------------------------------------------------------#
 EOT
 
@@ -36,7 +36,7 @@ EOT
 BASENAME=$( basename $0 )
 
 # The script'""s revision number will be displayed in the RSS feed:
-REV=$( echo "$Revision: 1.98 $" | cut -d' '  -f2 )
+REV=$( echo "$Revision: 1.99 $" | cut -d' '  -f2 )
 
 # The repository owner's defaults file;
 # you can override any of the default values in this file:
@@ -109,6 +109,11 @@ REPO_SUBDIRS=${REPO_SUBDIRS:-""}
 # in the repository metadata, define them here (space-separated).
 # Example: REPO_EXCLUDES="RCS logs .genreprc"
 REPO_EXCLUDES=${REPO_EXCLUDES:-""}
+
+# The program used to compress .tlz packages.
+# The default is lzip. Set TLZ_COMPEXE="lzma" in your USERDEFS file
+# if your .tlz packages actually use lzma compression.
+TLZ_COMPEXE=${TLZ_COMPEXE:-"lzip"}
 
 # ---------------------------------------------------------------------------
 
@@ -237,13 +242,23 @@ function pkgcomp {
     COMP=bzip2
     ;;
   'tlz' )
-    COMP=lzma
+    COMP="$TLZ_COMPEXE"
     ;;
   'txz' )
     COMP=xz
     ;;
   esac
   echo ${COMP:-"gzip"}
+}
+
+#
+# uncomp_size
+#
+function uncomp_size {
+  # uncomp_size <program> <file>
+  # Uncompress <file> using <program> and report the resulting size in bytes.
+
+  "$1" -dc < "$2" | wc -c
 }
 
 #
@@ -291,15 +306,21 @@ function addpkg {
     echo "--> Generating .meta file for $NAME"
 
     SIZE=$(du -s $PKG | cut -f 1)
-
-    if [ "$COMPEXE" = "xz" ]; then
-      # xz does not support the "-l" switch yet:
-      cat $PKG | $COMPEXE -dc | dd 1> /dev/null 2> $HOME/.temp.uncomp.$$
-      USIZE="$(expr $(cat $HOME/.temp.uncomp.$$ | head -n 1 | cut -f1 -d+) / 2)"
-      rm -f $HOME/.temp.uncomp.$$
-    else
-      USIZE=$( expr $(gunzip -l $PKG |tail -1|awk '{print $2}') / 1024 )
-    fi
+    case "$COMPEXE" in
+      xz|bzip2|lzma)
+        # Neither of xz or bzip2 support the "-l" switch yet
+        # so we decompress the file and see how big it is.
+        USIZE=$(( $(uncomp_size "$COMPEXE" "$PKG") / 1024 ))
+        ;;
+      gzip)
+        USIZE=$(( $(gzip -l $PKG | tail -1 | awk '{print $2}') / 1024 ))
+        ;;
+      lzip)
+        # lzip reverses the order of the columns displayed by gzip
+        # so the "print $1" awk program is not a typo.
+        USIZE=$(( $(lzip -l $PKG | tail -1 | awk '{print $1}') / 1024 ))
+        ;;
+    esac
 
     if [ $FOR_SLAPTGET -eq 1 ]; then
       REQUIRED=$($COMPEXE -cd $PKG | $TARONE -xOf - install/slack-required 2>/dev/null|tr -d ' '|xargs -r -iZ echo -n "Z,"|sed -e "s/,$//")
