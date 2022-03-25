@@ -481,6 +481,14 @@ function test_package
       retstat=1
     fi
 
+    # check for .la files
+    wrongstuff=$(grep -E '^-.* usr/lib(64)?/[^/]*\.la$' "$MY_PKGCONTENTS")
+    if [ -n "$wrongstuff" ]; then
+      log_warning -a -s "${itemid}: .la files found" && \
+        log_info -t -a "$wrongstuff"
+      retstat=1
+    fi
+
     [ "$retstat" = 0 ] && log_done
 
     # If this exists, we can get rid of it now.
