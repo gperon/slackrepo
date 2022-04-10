@@ -529,7 +529,9 @@ function build_item_packages
     #### fi ####
   done
 
-  [ "$OPT_CHROOT" != 'n' ] && chroot_report
+  if [ "$OPT_CHROOT" != 'n' ] ; then
+    chroot_report || { build_failed "$itemid"; return 7; }
+  fi
 
   local inst testinst
   # Do we want to install it?  if not, we'll ask for a test install.
@@ -815,6 +817,7 @@ function chroot_report
       if [ -n "$significant" ]; then
         log_warning -s -a "$itemid: Files/directories were modified in the chroot" && \
           log_info -t -a "${significant}"
+        return 1
       fi
     fi
   fi
