@@ -817,7 +817,7 @@ function chroot_report
       if [ -n "$significant" ]; then
         log_warning -s -a "$itemid: Files/directories were modified in the chroot" && \
           log_info -t -a "${significant}"
-        return 1
+        return 0
       fi
     fi
   fi
