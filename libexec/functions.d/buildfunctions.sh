@@ -812,7 +812,7 @@ function chroot_report
   if [ -f "$MY_STARTSTAMP" ]; then
     crap=$(cd "$OVL_DIRTY"; find . -path './tmp' -prune -o  -path ".$HOME/.*/*" -prune -o -newer "$MY_STARTSTAMP" -print 2>/dev/null)
     if [ -n "$crap" ]; then
-      excludes="^/dev/ttyp|^$HOME/\\.distcc|^$HOME/\\.cache|^$HOME\$|^/var/tmp|\\.pyc\$|__pycache__\$|^/etc/ld.so.cache\$|^/var/cache/ldconfig\$"
+      excludes="^/dev/ttyp|^$HOME/\\.distcc|^$HOME/\\.cache|^$HOME\$|^/var/tmp|\\.pyc\$|__pycache__\$|^/etc/ld.so.cache\$|^/var/cache/ldconfig\$|^/var/cache/fontconfig"
       significant="$(echo "$crap" | sed -e "s#^\./#/#" | grep -v -E "$excludes" | sort)"
       if [ -n "$significant" ]; then
         log_warning -s -a "$itemid: Files/directories were modified in the chroot" && \
