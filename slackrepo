@@ -114,7 +114,7 @@ starttime=$(date +%s)
 
 # Initialise OPTIONLIST first so that any extended options are at the end
 OPTIONLIST=( 'REPO' 'VERBOSE' 'VERY_VERBOSE' 'NOWARNING' \
-  'PREVIEW' 'DRY_RUN' 'INSTALL' 'LINT' 'KEEP_TMP' 'CHROOT' 'COLOR' 'NICE' 'REPRODUCIBLE' )
+  'PREVIEW' 'DRY_RUN' 'INSTALL' 'LINT' 'KEEP_TMP' 'CHROOT' 'COLOR' 'NICE' 'REPRODUCIBLE' 'AARCH64')
 
 # Get the support functions
 LIBEXECDIR="/usr/libexec/$(basename "$0")"

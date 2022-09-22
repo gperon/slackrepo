@@ -305,9 +305,19 @@ function parse_info_and_hints
       GITDIRTY[$itemid]="n"
     fi
 
+
+    local archsuffix
+    if [ "${SR_ARCH}" = "aarch64" ] ; then
+      # for now, expect the aarch64 binaries to be in DOWNLOAD_x86_64 until SBo decides how to handle aarch64
+      archsuffix=x86_64
+    else
+      archsuffix=${SR_ARCH}
+    fi
+
     # These are the variables we want:
-    local VERSION DOWNLOAD DOWNLOAD_${SR_ARCH} REQUIRES
-    local MD5SUM MD5SUM_${SR_ARCH} SHA256SUM SHA256SUM_${SR_ARCH}
+    local VERSION DOWNLOAD DOWNLOAD_${archsuffix} REQUIRES
+    local MD5SUM MD5SUM_${archsuffix} SHA256SUM SHA256SUM_${archsuffix}
+
     # Preferably, get them from the info file:
     if [ -f "$SR_SBREPO/$itemdir/$itemprgnam.info" ]; then
       # is prgnam.info plausibly in SBo format?
@@ -343,11 +353,11 @@ function parse_info_and_hints
     # Don't bother checking if they are improperly paired (it'll become apparent later).
     # If they are unset, set empty strings in INFODOWNLIST / INFOMD5LIST / INFOSHA256LIST.
     # Also set SRCDIR (even if there is no source, SRCDIR is needed to hold .version)
-    if [ -n "$(eval echo \$DOWNLOAD_"$SR_ARCH")" ]; then
-      INFODOWNLIST[$itemid]="$(eval echo \$DOWNLOAD_"$SR_ARCH")"
-      INFOMD5LIST[$itemid]="$(eval echo \$MD5SUM_"$SR_ARCH")"
-      INFOSHA256LIST[$itemid]="$(eval echo \$SHA256SUM_"$SR_ARCH")"
-      SRCDIR[$itemid]="$SR_SRCREPO"/"$itemdir"/"$SR_ARCH"
+    if [ -n "$(eval echo \$DOWNLOAD_"$archsuffix")" ]; then
+      INFODOWNLIST[$itemid]="$(eval echo \$DOWNLOAD_"$archsuffix")"
+      INFOMD5LIST[$itemid]="$(eval echo \$MD5SUM_"$archsuffix")"
+      INFOSHA256LIST[$itemid]="$(eval echo \$SHA256SUM_"$archsuffix")"
+      SRCDIR[$itemid]="$SR_SRCREPO"/"$itemdir"/"$archsuffix"
     else
       INFODOWNLIST[$itemid]="${DOWNLOAD:-}"
       INFOMD5LIST[$itemid]="${MD5SUM:-}"
@@ -369,7 +379,7 @@ function parse_info_and_hints
       HINT_SHA256IGNORE[$itemid]='y'
     fi
     unset DOWNLOAD MD5SUM SHA256SUM PRGNAM SRCNAM VERSION
-    eval unset DOWNLOAD_"$SR_ARCH" MD5SUM_"$SR_ARCH" SHA256SUM_"$SR_ARCH"
+    eval unset DOWNLOAD_"$archsuffix" MD5SUM_"$archsuffix" SHA256SUM_"$archsuffix"
 
     # Conditionally save REQUIRES from info file into INFOREQUIRES
     # (which will be processed in the Fixup department below).

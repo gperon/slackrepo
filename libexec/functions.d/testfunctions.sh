@@ -31,9 +31,18 @@ function test_slackbuild
   local itemfile="${ITEMFILE[$itemid]}"
   local retstat=0
 
+  local archsuffix
+  if [ "${SR_ARCH}" = "aarch64" ] ; then
+    # for now, expect the aarch64 binaries to be in DOWNLOAD_x86_64 until SBo decides how to handle aarch64
+    archsuffix=x86_64
+  else
+    archsuffix=${SR_ARCH}
+  fi
+
   local PRGNAM VERSION HOMEPAGE
-  local DOWNLOAD DOWNLOAD_${SR_ARCH}
-  local MD5SUM MD5SUM_${SR_ARCH} SHA256SUM SHA256SUM_${SR_ARCH}
+
+  local DOWNLOAD DOWNLOAD_${archsuffix}
+  local MD5SUM MD5SUM_${archsuffix} SHA256SUM SHA256SUM_${archsuffix}
   local REQUIRES MAINTAINER EMAIL
 
   local slackdesc linecount

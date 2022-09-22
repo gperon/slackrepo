@@ -651,6 +651,7 @@ function info_command
   [        "$OPT_NICE" != '5' ] && echo "  --nice=$OPT_NICE"
   [ "$OPT_REPRODUCIBLE" = 'y' ] && echo "  --reproducible"
   [   "$OPT_NOWARNING" != ''  ] && echo "  --nowarning=$OPT_NOWARNING"
+  [      "$OPT_AARCH64" = 'y' ] && echo "  --aarch64"
 
   # Show the variables
   for name in $varnames; do

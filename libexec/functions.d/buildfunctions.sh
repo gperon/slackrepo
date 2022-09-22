@@ -204,6 +204,14 @@ function build_item_packages
     unset SOURCE_DATE_EPOCH
   fi
 
+  if [ "${OPT_AARCH64:-n}" != 'n' ]; then
+    # If aarch64 support isn't included, add it
+    if [ "$SR_ARCH" = 'aarch64' ] && ! grep -q aarch64 "$TMP_SLACKBUILD/$itemfile" ; then
+      log_info -a "Pragma: aarch64"
+      sed -i "/elif.*\$ARCH.*=.*x86_64.*;/s/;/ || [ \"\$ARCH\" = \"aarch64\" ] ;/" "$TMP_SLACKBUILD/$itemfile"
+    fi
+  fi
+
   SLACKBUILDOPTS="env"
   SLACKBUILDRUN="bash ./$itemfile"
   [ "$OPT_VERY_VERBOSE" = 'y' ] && SLACKBUILDRUN="bash -x ./$itemfile"
