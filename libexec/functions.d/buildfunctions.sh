@@ -209,6 +209,7 @@ function build_item_packages
     if [ "$SR_ARCH" = 'aarch64' ] && ! grep -q aarch64 "$TMP_SLACKBUILD/$itemfile" ; then
       log_info -a "Pragma: aarch64"
       sed -i "/elif.*\$ARCH.*=.*x86_64.*;/s/;/ || [ \"\$ARCH\" = \"aarch64\" ] ;/" "$TMP_SLACKBUILD/$itemfile"
+      sed -i "/--target x86_64-unknown-linux-gnu/s/x86_64/\$ARCH/" "$TMP_SLACKBUILD/$itemfile"
     fi
   fi
 
