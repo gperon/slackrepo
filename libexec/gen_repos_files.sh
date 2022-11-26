@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2006-2014  Eric Hameleers, Eindhoven, The Netherlands
+# Copyright (c) 2006-2018  Eric Hameleers, Eindhoven, The Netherlands
 # All rights reserved.
 #
 #   Permission to use, copy, modify, and distribute this software for
@@ -28,7 +28,7 @@
 # ---------------------------------------------------------------------------
 cat <<"EOT"
 # -------------------------------------------------------------------#
-# $Id: gen_repos_files.sh,v 1.93 2017/02/01 20:09:41 root Exp root $ #
+# $Id: gen_repos_files.sh,v 1.99 2020/12/30 12:08:08 root Exp root $ #
 # -------------------------------------------------------------------#
 EOT
 
@@ -36,7 +36,7 @@ EOT
 BASENAME=$( basename $0 )
 
 # The script'""s revision number will be displayed in the RSS feed:
-REV=$( echo "$Revision: 1.93 $" | cut -d' '  -f2 )
+REV=$( echo "$Revision: 1.99 $" | cut -d' '  -f2 )
 
 # The repository owner's defaults file;
 # you can override any of the default values in this file:
@@ -82,7 +82,7 @@ RSS_FEEDMAX=${RSS_FEEDMAX:-15}
 RSS_UUID=${RSS_UUID:-""}
 
 # Either use gpg or gpg2:
-GPGBIN=${GPGBIN:-"/usr/bin/gpg"}
+GPGBIN=${GPGBIN:-"/usr/bin/gpg2"}
 
 # Optionally use gpg-agent to cache the gpg passphrase instead of letting the
 # script keep it in the environment (note that if you define USE_GPGAGENT=1
@@ -109,6 +109,11 @@ REPO_SUBDIRS=${REPO_SUBDIRS:-""}
 # in the repository metadata, define them here (space-separated).
 # Example: REPO_EXCLUDES="RCS logs .genreprc"
 REPO_EXCLUDES=${REPO_EXCLUDES:-""}
+
+# The program used to compress .tlz packages.
+# The default is lzip. Set TLZ_COMPEXE="lzma" in your USERDEFS file
+# if your .tlz packages actually use lzma compression.
+TLZ_COMPEXE=${TLZ_COMPEXE:-"lzip"}
 
 # ---------------------------------------------------------------------------
 
@@ -164,6 +169,9 @@ if [ -n "$REPO_EXCLUDES" ]; then
     PRUNES="${PRUNES} -o -name ${substr} -prune "
   done
 fi
+
+# Use tar efficiently when only looking for one file:
+TARONE="tar --occurrence=1"
 
 # Command line parameter processing:
 while getopts ":ahl:mn:prstv" Option
@@ -234,13 +242,23 @@ function pkgcomp {
     COMP=bzip2
     ;;
   'tlz' )
-    COMP=lzma
+    COMP="$TLZ_COMPEXE"
     ;;
   'txz' )
     COMP=xz
     ;;
   esac
   echo ${COMP:-"gzip"}
+}
+
+#
+# uncomp_size
+#
+function uncomp_size {
+  # uncomp_size <program> <file>
+  # Uncompress <file> using <program> and report the resulting size in bytes.
+
+  "$1" -dc < "$2" | wc -c
 }
 
 #
@@ -273,35 +291,41 @@ function addpkg {
   METAFILE=${NAME%t[blxg]z}meta
   TXTFILE=${NAME%t[blxg]z}txt
 
+  # Determine the compression tool used for this package:
+  COMPEXE=$( pkgcomp $PKG )
+
   if [ "$FORCEPKG" == "yes" -o ! -f $LOCATION/$TXTFILE ]; then
     # This is a courtesy service:
     echo "--> Generating .txt file for $NAME"
     rm -f $LOCATION/$TXTFILE
-    $COMPEXE -cd $PKG | tar xOf - install/slack-desc | sed -n '/^#/d;/:/p' > $LOCATION/$TXTFILE
+    $COMPEXE -cd $PKG | $TARONE -xOf - install/slack-desc | sed -n '/^#/d;/:/p' > $LOCATION/$TXTFILE
     [ "$TOUCHUP" == "yes"  ] && touch -r $PKG $LOCATION/$TXTFILE || touch -d "$UPDATEDATE" $LOCATION/$TXTFILE
   fi
 
   if [ "$FORCEPKG" == "yes" -o ! -f $LOCATION/$METAFILE ]; then
     echo "--> Generating .meta file for $NAME"
 
-    # Determine the compression tool used for this package:
-    COMPEXE=$( pkgcomp $PKG )
-
     SIZE=$(du -s $PKG | cut -f 1)
-
-    if [ "$COMPEXE" = "xz" ]; then
-      # xz does not support the "-l" switch yet:
-      cat $PKG | $COMPEXE -dc | dd 1> /dev/null 2> $HOME/.temp.uncomp.$$
-      USIZE="$(expr $(cat $HOME/.temp.uncomp.$$ | head -n 1 | cut -f1 -d+) / 2)"
-      rm -f $HOME/.temp.uncomp.$$
-    else
-      USIZE=$( expr $(gunzip -l $PKG |tail -1|awk '{print $2}') / 1024 )
-    fi
+    case "$COMPEXE" in
+      xz|bzip2|lzma)
+        # Neither of xz or bzip2 support the "-l" switch yet
+        # so we decompress the file and see how big it is.
+        USIZE=$(( $(uncomp_size "$COMPEXE" "$PKG") / 1024 ))
+        ;;
+      gzip)
+        USIZE=$(( $(gzip -l $PKG | tail -1 | awk '{print $2}') / 1024 ))
+        ;;
+      lzip)
+        # lzip reverses the order of the columns displayed by gzip
+        # so the "print $1" awk program is not a typo.
+        USIZE=$(( $(lzip -l $PKG | tail -1 | awk '{print $1}') / 1024 ))
+        ;;
+    esac
 
     if [ $FOR_SLAPTGET -eq 1 ]; then
-      REQUIRED=$($COMPEXE -cd $PKG | tar xOf - install/slack-required 2>/dev/null|tr -d ' '|xargs -r -iZ echo -n "Z,"|sed -e "s/,$//")
-      CONFLICTS=$($COMPEXE -cd $PKG | tar xOf - install/slack-conflicts 2>/dev/null|tr -d ' '|xargs -r -iZ echo -n "Z,"|sed -e "s/,$//")
-      SUGGESTS=$($COMPEXE -cd $PKG | tar xOf - install/slack-suggests 2>/dev/null|xargs -r )
+      REQUIRED=$($COMPEXE -cd $PKG | $TARONE -xOf - install/slack-required 2>/dev/null|tr -d ' '|xargs -r -iZ echo -n "Z,"|sed -e "s/,$//")
+      CONFLICTS=$($COMPEXE -cd $PKG | $TARONE -xOf - install/slack-conflicts 2>/dev/null|tr -d ' '|xargs -r -iZ echo -n "Z,"|sed -e "s/,$//")
+      SUGGESTS=$($COMPEXE -cd $PKG | $TARONE -xOf - install/slack-suggests 2>/dev/null|xargs -r )
     fi
 
     rm -f $LOCATION/$METAFILE
@@ -321,7 +345,7 @@ function addpkg {
     if [ -f $LOCATION/$TXTFILE ]; then
       cat $LOCATION/$TXTFILE >> $LOCATION/$METAFILE
     else
-      $COMPEXE -cd $PKG | tar xOf - install/slack-desc | sed -n '/^#/d;/:/p' >> $LOCATION/$METAFILE
+      $COMPEXE -cd $PKG | $TARONE -xOf - install/slack-desc | sed -n '/^#/d;/:/p' >> $LOCATION/$METAFILE
     fi
     echo "" >> $LOCATION/$METAFILE
   [ "$TOUCHUP" == "yes"  ] && touch -r $PKG $LOCATION/$METAFILE || touch -d "$UPDATEDATE" $LOCATION/$METAFILE
@@ -356,11 +380,11 @@ function addman {
   LOCATION=$(echo $PKG|sed -re "s/(.*)\/(.*.t[blxg]z)$/\1/")
   LSTFILE=${NAME%t[blxg]z}lst
 
+  # Determine the compression tool used for this package:
+  COMPEXE=$( pkgcomp $PKG )
+
   if [ "$FORCEPKG" == "yes" -o ! -f $LOCATION/$LSTFILE ]; then
     echo "--> Generating .lst file for $NAME"
-
-    # Determine the compression tool used for this package:
-    COMPEXE=$( pkgcomp $PKG )
 
     rm -f $LOCATION/$LSTFILE
     cat << EOF > $LOCATION/$LSTFILE
@@ -537,9 +561,9 @@ function upd_changelog {
   LOGLINE[$i]="$LOGTXT"
 
   cat <<-EOT > ${DIR}/.${CHANGELOG}
-	+--------------------------+
-	$UPDATEDATE
-	EOT
+  +--------------------------+
+  $UPDATEDATE
+  EOT
 
   for IND in $(seq 0 $i); do
     echo "${LOGLINE[$IND]}" >> ${DIR}/.${CHANGELOG}
@@ -612,30 +636,30 @@ function rss_changelog {
       PUBDATE=$(LC_ALL=C TZ=GMT date +"%a, %e %b %Y %H:%M:%S GMT" -d "$cline")
       rm -f ${RSSFILE}
       cat <<-_EOT_ > ${RSSFILE}
-	<?xml version="1.0" encoding="iso-8859-1"?>
-	<rss version="2.0">
-	   <channel>
-	      <title>${TITLE}</title>
-	      <link>${LINK}</link>
-	      <image>
-	        <title>${TITLE}</title>
-	        <url>${ICON}</url>
-	        <link>${LINK}</link>
-	      </image>
-	      <description>${DESCRIPTION}</description>
-	      <language>en-us</language>
-	      <id xmlns="http://www.w3.org/2005/Atom">urn:uuid:${UUID}</id>
-	      <pubDate>${PUBDATE}</pubDate>
-	      <lastBuildDate>${LASTBUILDDATE}</lastBuildDate>
-	      <generator>${BASENAME} v ${REV}</generator>
-	      <item>
-	         <title>${PUBDATE}</title>
-	         <link>${CLURL}</link>
-	         <pubDate>${PUBDATE}</pubDate>
-	         <guid isPermaLink="false">$(LC_ALL=C date -d "${PUBDATE}" +%Y%m%d%H%M%S)</guid>
-	         <description>
-	           <![CDATA[<pre>
-	_EOT_
+  <?xml version="1.0" encoding="iso-8859-1"?>
+  <rss version="2.0">
+     <channel>
+        <title>${TITLE}</title>
+        <link>${LINK}</link>
+        <image>
+          <title>${TITLE}</title>
+          <url>${ICON}</url>
+          <link>${LINK}</link>
+        </image>
+        <description>${DESCRIPTION}</description>
+        <language>en-us</language>
+        <id xmlns="http://www.w3.org/2005/Atom">urn:uuid:${UUID}</id>
+        <pubDate>${PUBDATE}</pubDate>
+        <lastBuildDate>${LASTBUILDDATE}</lastBuildDate>
+        <generator>${BASENAME} v ${REV}</generator>
+        <item>
+           <title>${PUBDATE}</title>
+           <link>${CLURL}</link>
+           <pubDate>${PUBDATE}</pubDate>
+           <guid isPermaLink="false">$(LC_ALL=C date -d "${PUBDATE}" +%Y%m%d%H%M%S)</guid>
+           <description>
+             <![CDATA[<pre>
+  _EOT_
     elif [ "$cline" == "+--------------------------+" ]; then
       # This line masrks the start of a new entry.
       # Only dump a certain amount of recent entries.
@@ -643,10 +667,10 @@ function rss_changelog {
 
       # Close the previous entry:
       cat <<-_EOT_ >> ${RSSFILE}
-	           </pre>]]>
-	         </description>
-	      </item>
-	_EOT_
+             </pre>]]>
+           </description>
+        </item>
+  _EOT_
 
       # Next line is the pubdate for the next entry:
       read PUBDATE
@@ -654,14 +678,14 @@ function rss_changelog {
 
       # Write the header for the next entry:
       cat <<-_EOT_ >> ${RSSFILE}
-	      <item>
-	         <title>${PUBDATE}</title>
-	         <link>${CLURL}</link>
-	         <pubDate>${PUBDATE}</pubDate>
-	         <guid isPermaLink="false">$(LC_ALL=C date -d "${PUBDATE}" +%Y%m%d%H%M%S)</guid>
-	         <description>
-	           <![CDATA[<pre>
-	_EOT_
+        <item>
+           <title>${PUBDATE}</title>
+           <link>${CLURL}</link>
+           <pubDate>${PUBDATE}</pubDate>
+           <guid isPermaLink="false">$(LC_ALL=C date -d "${PUBDATE}" +%Y%m%d%H%M%S)</guid>
+           <description>
+             <![CDATA[<pre>
+  _EOT_
 
       counter=$(( ${counter}+1 ))
     else
@@ -672,16 +696,16 @@ function rss_changelog {
 
   # Close the last entry:
   cat <<-_EOT_ >> ${RSSFILE}
-	           </pre>]]>
-	         </description>
-	      </item>
-	_EOT_
+             </pre>]]>
+           </description>
+        </item>
+  _EOT_
 
   # Close the XML output:
   cat <<-_EOT_ >> ${RSSFILE}
-	   </channel>
-	</rss>
-	_EOT_
+     </channel>
+  </rss>
+  _EOT_
 }
 
 #
@@ -709,7 +733,7 @@ run_repo() {
   for pkg in $PKGS; do
     # Found a filename with matching format, is it really a slackpack?
     COMPEXE=$( pkgcomp $pkg )
-    if $COMPEXE -cd $pkg | tar tOf - install/slack-desc 1>/dev/null 2>&1 ; then
+    if $COMPEXE -cd $pkg | $TARONE -tOf - install/slack-desc 1>/dev/null 2>&1 ; then
       [ $DEBUG -eq 1 ] && echo "+++ Found package $pkg"
       # We need to run addpkg for every package, to populate PACKAGES.TXT:
       addpkg $pkg ${RDIR}/.PACKAGES.TXT
@@ -882,19 +906,39 @@ else
       rm -f $TESTTMP
       exit 1
     else
+      # Use the key's fingerprint to determine whether GPG-KEY is outdated,
+      # note that newer GPG versions also show fingerprint records for any
+      # sub-key so we will have to filter those out:
+      GPG_FPR=$($GPGBIN --with-colon --with-fingerprint --list-keys "$REPOSOWNERGPG" |grep ^fpr |head -1 |cut -d: -f10)
+      if [ -r ${REPOSROOT}/GPG-KEY ]; then
+        # If the GPG-KEY file is outdated (user may have a new key),
+        # then we delete this file and re-generate it in the next step:
+        if ! grep -q $GPG_FPR ${REPOSROOT}/GPG-KEY ; then
+          rm -f ${REPOSROOT}/GPG-KEY
+        fi
+      fi
       if [ ! -r ${REPOSROOT}/GPG-KEY ]; then
         echo "Generating a "GPG-KEY" file in '$REPOSROOT',"
         echo "  containing the public key information for '$REPOSOWNERGPG'..."
         $GPGBIN --list-keys "$REPOSOWNERGPG" > ${REPOSROOT}/GPG-KEY
+        echo "Key fingerprint: $GPG_FPR" >> ${REPOSROOT}/GPG-KEY
         $GPGBIN -a --export "$REPOSOWNERGPG" >> ${REPOSROOT}/GPG-KEY
         chmod 444 ${REPOSROOT}/GPG-KEY
       fi
       if [ -n "$REPO_SUBDIRS" ]; then
         for SUBDIR in $REPO_SUBDIRS ; do
+          if [ -r ${REPOSROOT}}/${SUBDIR}/GPG-KEY ]; then
+            # If the GPG-KEY file is outdated (user may have a new key),
+            # then we delete this file and re-generate it in the next step:
+            if ! grep -q $GPG_FPR ${REPOSROOT}}/${SUBDIR}/GPG-KEY ; then
+              rm -f ${REPOSROOT}}/${SUBDIR}/GPG-KEY
+            fi
+          fi
           if [ ! -r ${REPOSROOT}/${SUBDIR}/GPG-KEY ]; then
             echo "Generating a "GPG-KEY" file in '$REPOSROOT/$SUBDIR',"
             echo "  containing the public key information for '$REPOSOWNERGPG'."
             $GPGBIN --list-keys "$REPOSOWNERGPG" > $REPOSROOT/$SUBDIR/GPG-KEY
+            echo "Key fingerprint: $GPG_FPR" >> $REPOSROOT/$SUBDIR/GPG-KEY
             $GPGBIN -a --export "$REPOSOWNERGPG" >> $REPOSROOT/$SUBDIR/GPG-KEY
             chmod 444 ${REPOSROOT}/${SUBDIR}/GPG-KEY
           fi
