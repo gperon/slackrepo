@@ -31,9 +31,18 @@ function test_slackbuild
   local itemfile="${ITEMFILE[$itemid]}"
   local retstat=0
 
+  local archsuffix
+  if [ "${SR_ARCH}" = "aarch64" ] ; then
+    # for now, expect the aarch64 binaries to be in DOWNLOAD_x86_64 until SBo decides how to handle aarch64
+    archsuffix=x86_64
+  else
+    archsuffix=${SR_ARCH}
+  fi
+
   local PRGNAM VERSION HOMEPAGE
-  local DOWNLOAD DOWNLOAD_${SR_ARCH}
-  local MD5SUM MD5SUM_${SR_ARCH} SHA256SUM SHA256SUM_${SR_ARCH}
+
+  local DOWNLOAD DOWNLOAD_${archsuffix}
+  local MD5SUM MD5SUM_${archsuffix} SHA256SUM SHA256SUM_${archsuffix}
   local REQUIRES MAINTAINER EMAIL
 
   local slackdesc linecount
@@ -173,14 +182,14 @@ function test_download
         fi
         ;;
       *)
-        curl -q --connect-timeout 10 --retry 2 -f -v -k --ciphers ALL --disable-epsv --ftp-method nocwd -J -L -A slackrepo -I -o "$MY_HEADER" "$url" >> "$ITEMLOG" 2>&1
+        curl --disable --connect-timeout 10 --retry 2 --fail --verbose --insecure --ciphers ALL --disable-epsv --ftp-method nocwd --location --user-agent slackrepo --head --output "$MY_HEADER" "$url" >> "$ITEMLOG" 2>&1
         curlstat=$?
         if [ "$curlstat" = 0 ]; then
           remotelength=$(fromdos <"$MY_HEADER" | grep 'Content-[Ll]ength: ' | tail -n 1 | sed 's/^.* //')
           # Proceed only if we seem to have extracted a valid content-length.
           if [ -n "$remotelength" ] && [ "$remotelength" != 0 ]; then
             # Filenames that have %nn encodings won't get checked.
-            filename=$(fromdos <"$MY_HEADER" | grep 'Content-[Dd]isposition:.*filename=' | sed -e 's/^.*filename=//' -e 's/^"//' -e 's/"$//' -e 's/\%20/ /g' -e 's/\%7E/~/g')
+            filename=$(fromdos <"$MY_HEADER" | grep '[Cc]ontent-[Dd]isposition:.*filename=' | sed -e 's/^.*filename=//' -e 's/^"//' -e 's/"$//' -e 's/\%20/ /g' -e 's/\%7E/~/g')
             # If no Content-Disposition, we'll have to guess:
             [ -z "$filename" ] && filename="$(basename "$url")"
             if [ -f "${SRCDIR[$itemid]}"/"$filename" ]; then
@@ -477,6 +486,14 @@ function test_package
     wrongstuff=$(grep -E '^-.* usr/(share/)?man/' "$MY_PKGCONTENTS" | grep -v '\.gz$')
     if [ -n "$wrongstuff" ]; then
       log_warning -a -s "${itemid}: Uncompressed man pages" && \
+        log_info -t -a "$wrongstuff"
+      retstat=1
+    fi
+
+    # check for .la files
+    wrongstuff=$(grep -E '^-.* usr/lib(64)?/[^/]*\.la$' "$MY_PKGCONTENTS")
+    if [ -n "$wrongstuff" ]; then
+      log_warning -a -s "${itemid}: .la files found" && \
         log_info -t -a "$wrongstuff"
       retstat=1
     fi

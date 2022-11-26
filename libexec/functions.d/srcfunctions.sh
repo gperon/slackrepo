@@ -144,6 +144,13 @@ function download_src
     useragent="slackrepo/1.0.0"
     # "special needs"
     case "$url" in
+      # avoid the ?viasf=1 tacked onto sourceforge downloads with wget --content-disposition
+      *sourceforge.net*)
+        dlcmd="curl";
+        ;;
+      *.sf.net*)
+        dlcmd="curl";
+        ;;
       # dropbox fails to redirect to the actual download if the user-agent *isn't* wget
       # (The regex '*dropbox*' gives false positives, but is necessary to cope with
       # dropboxusercontent.com -- hopefully no false positives refuse wget?)
@@ -162,6 +169,10 @@ function download_src
         dlcmd="curl";
         useragent="curl/7.51.0"
         curlboredom="${curlboredom} --cookie oraclelicense=accept-securebackup-cookie"
+        ;;
+      # treegraph requires a referrer header, otherwise you get redirected to an HTML page to download
+      *treegraph.bioinfweb.info*)
+        wgetboredom="${wgetboredom} --referer=http://treegraph.bioinfweb.info/"
         ;;
     esac
     # In case of utter derpage, you can override that with a pragma if necessary :(

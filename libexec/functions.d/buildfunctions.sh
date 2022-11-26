@@ -204,6 +204,15 @@ function build_item_packages
     unset SOURCE_DATE_EPOCH
   fi
 
+  if [ "${OPT_AARCH64:-n}" != 'n' ]; then
+    # If aarch64 support isn't included, add it
+    if [ "$SR_ARCH" = 'aarch64' ] && ! grep -q aarch64 "$TMP_SLACKBUILD/$itemfile" ; then
+      log_info -a "Pragma: aarch64"
+      sed -i "/elif.*\$ARCH.*=.*x86_64.*;/s/;/ || [ \"\$ARCH\" = \"aarch64\" ] ;/" "$TMP_SLACKBUILD/$itemfile"
+      sed -i "/--target x86_64-unknown-linux-gnu/s/x86_64/\$ARCH/" "$TMP_SLACKBUILD/$itemfile"
+    fi
+  fi
+
   SLACKBUILDOPTS="env"
   SLACKBUILDRUN="bash ./$itemfile"
   [ "$OPT_VERY_VERBOSE" = 'y' ] && SLACKBUILDRUN="bash -x ./$itemfile"
@@ -227,6 +236,7 @@ function build_item_packages
   hintneedX='n'
   restorevars=''
   removestubs=''
+  removeuname=''
   for pragma in ${HINT_PRAGMA[$itemid]}; do
     case "$pragma" in
     'multilib_ldflags' )
@@ -324,6 +334,15 @@ function build_item_packages
     'need_X' )
       log_info -a "Pragma: need_X"
       hintneedX='y'
+      ;;
+    'kernelversion' )
+      log_info -a "Pragma: kernelversion"
+
+      if [ ! -z "$KERNEL" ] && [ "$KERNEL" != "$(uname -r)" ] ; then
+        ${SUDO}cp -a /usr/share/slackrepo/uname /usr/local/sbin/
+        removeuname='y'
+      fi
+
       ;;
     'kernel'* | curl | wget )
       ;;
@@ -451,6 +470,7 @@ function build_item_packages
   unset ARCH BUILD TAG TMP OUTPUT PKGTYPE NUMJOBS
   [ -n "$restorevars" ] && eval "$restorevars"
   [ -n "$removestubs" ] && ${SUDO}rm /usr/include/gnu/stubs-32.h
+  [ -n "$removeuname" ] && ${SUDO}rm /usr/local/sbin/uname
 
   # If there's a config.log in the obvious place, save it
   configlog="${TMP_BUILD}/${itemprgnam}-${INFOVERSION[$itemid]}/config.log"
@@ -518,7 +538,9 @@ function build_item_packages
     #### fi ####
   done
 
-  [ "$OPT_CHROOT" != 'n' ] && chroot_report
+  if [ "$OPT_CHROOT" != 'n' ] ; then
+    chroot_report || { build_failed "$itemid"; return 7; }
+  fi
 
   local inst testinst
   # Do we want to install it?  if not, we'll ask for a test install.
@@ -641,6 +663,7 @@ function build_failed
   log_error -n "${STATUSINFO[$itemid]}"
 
   if [ -n "${MY_CHRDIR}" ]; then
+    uninstall_deps "$itemid" # run any cleanup pragmas
     chroot_destroy
   elif [ "${HINT_INSTALL[$itemid]}" = 'n' ] || [ "$OPT_INSTALL" != 'y' -a "${HINT_INSTALL[$itemid]}" != 'y' ]; then
     uninstall_deps "$itemid"
@@ -732,9 +755,13 @@ function chroot_setup
   CHRMOUNTS+=( "$MY_CHRDIR"/proc )
   ${SUDO}mount -t sysfs sysfs "$MY_CHRDIR"/sys
   CHRMOUNTS+=( "$MY_CHRDIR"/sys )
+
   if [ "$BLOCKNET" = 'y' ]; then
     ${SUDO}rm -f "$MY_CHRDIR"/etc/resolv.conf
     ${SUDO}touch "$MY_CHRDIR"/etc/resolv.conf
+    ${SUDO}touch "$MY_CHRDIR"/etc/hosts
+    ${SUDO}mount --bind /etc/hosts "$MY_CHRDIR"/etc/hosts
+    CHRMOUNTS+=( "$MY_CHRDIR"/etc/hosts )
   else
     ${SUDO}touch "$MY_CHRDIR"/etc/resolv.conf
     ${SUDO}mount --bind /etc/resolv.conf "$MY_CHRDIR"/etc/resolv.conf
@@ -792,13 +819,14 @@ function chroot_report
   [ -z "$MY_CHRDIR" ] && return 0
 
   if [ -f "$MY_STARTSTAMP" ]; then
-    crap=$(cd "$OVL_DIRTY"; find . -path './tmp' -prune -o  -path ".$HOME/.*/*" -prune -o -newer ../startstamp -print 2>/dev/null)
+    crap=$(cd "$OVL_DIRTY"; find . -path './tmp' -prune -o  -path ".$HOME/.*/*" -prune -o -newer "$MY_STARTSTAMP" -print 2>/dev/null)
     if [ -n "$crap" ]; then
-      excludes="^/dev/ttyp|^$HOME/\\.distcc|^$HOME/\\.cache|^$HOME\$|^/var/tmp|\\.pyc\$|^/etc/ld.so.cache\$|^/var/cache/ldconfig\$"
+      excludes="^/dev/ttyp|^$HOME/\\.distcc|^$HOME/\\.cache|^$HOME/go|^$HOME\$|^/var/tmp|\\.pyc\$|__pycache__\$|^/etc/ld.so.cache\$|^/var/cache/ldconfig\$|^/var/cache/fontconfig"
       significant="$(echo "$crap" | sed -e "s#^\./#/#" | grep -v -E "$excludes" | sort)"
       if [ -n "$significant" ]; then
         log_warning -s -a "$itemid: Files/directories were modified in the chroot" && \
           log_info -t -a "${significant}"
+        return 0
       fi
     fi
   fi

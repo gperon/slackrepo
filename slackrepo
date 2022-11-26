@@ -114,7 +114,7 @@ starttime=$(date +%s)
 
 # Initialise OPTIONLIST first so that any extended options are at the end
 OPTIONLIST=( 'REPO' 'VERBOSE' 'VERY_VERBOSE' 'NOWARNING' \
-  'PREVIEW' 'DRY_RUN' 'INSTALL' 'LINT' 'KEEP_TMP' 'CHROOT' 'COLOR' 'NICE' 'REPRODUCIBLE' )
+  'PREVIEW' 'DRY_RUN' 'INSTALL' 'LINT' 'KEEP_TMP' 'CHROOT' 'COLOR' 'NICE' 'REPRODUCIBLE' 'AARCH64')
 
 # Get the support functions
 LIBEXECDIR="/usr/libexec/$(basename "$0")"
@@ -284,7 +284,7 @@ else
   echo "$(basename "$0"): Error: /etc/slackware-version not found"
   exit_cleanup 4
 fi
-SYS_KERNEL=$(uname -r)
+SYS_KERNEL=${KERNEL:-$(uname -r)}
 SYS_ARCH=$(uname -m)
 SYS_MULTILIB='n'
 [ "$SYS_ARCH" = 'x86_64' ] && [ -f /etc/profile.d/32dev.sh ] && SYS_MULTILIB='y'
@@ -299,23 +299,16 @@ SYS_OVERLAYFS='n'
 if \
   [ -d /sys/module/overlay ] || \
   [ -f /lib/modules/"$(uname -r)"/kernel/fs/overlayfs/overlay.ko ] || \
+  [ -f /lib/modules/"$(uname -r)"/kernel/fs/overlayfs/overlay.ko.gz ] || \
   grep -q overlay /proc/filesystems
 then
   SYS_OVERLAYFS='y'
 fi
 # Detect current
 SYS_CURRENT='n'
-if [ -f /var/lib/slackpkg/ChangeLog.txt ] && ! grep -q "${SYS_OSVER}.*is released" /var/lib/slackpkg/ChangeLog.txt; then
-  # we must be in-between updating aaa_base and the real release
+# PRETTY_NAME="Slackware 14.2 x86_64 (post 14.2 -current)"
+if sed -n '/^PRETTY_NAME/p' /etc/os-release | grep post > /dev/null 2>&1 ; then
   SYS_CURRENT='y'
-elif [ "${SYS_OSNAME}${SYS_OSVER}" = "slackware14.2" ]; then
-  # file-5.25 was the first package superseded in this cycle of current
-  for filefile in /var/log/packages/file-5.25-*-1; do
-    if [ ! -f "$filefile" ]; then
-      SYS_CURRENT='y'
-      break
-    fi
-  done
 # else we're not going to support someone stuck in a 14.1 cycle timewarp
 fi
 
@@ -324,7 +317,7 @@ fi
 # However, they do NOT have the SR_ prefix in the config files or environment.
 varnames="SBREPO SRCREPO PKGREPO PKGBACKUP \
           HINTDIR DEFAULT_HINTDIR LOGDIR DATABASE TMP \
-          ARCH TAG PKGTYPE NUMJOBS"
+          ARCH TAG PKGTYPE NUMJOBS SUBSTITUTE"
 # These config vars don't need to be obfuscated:
 genrepnames="USE_GENREPOS REPOSROOT REPOSOWNER REPOSOWNERGPG DL_URL \
              RSS_TITLE RSS_ICON RSS_LINK RSS_CLURL RSS_DESCRIPTION RSS_FEEDMAX RSS_UUID \
